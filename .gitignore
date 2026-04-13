@@ -1,0 +1,93 @@
+# =========================
+# 🔐 ENVIRONMENT FILES
+# =========================
+.env
+.env.*
+!.env.example
+.env.example
+
+
+# =========================
+# 🐍 PYTHON / DJANGO
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django stuff
+*.log
+*.pot
+*.pyc
+db.sqlite3
+media/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Migrations (optional: keep if team project)
+# */migrations/*
+# !*/migrations/__init__.py
+
+# =========================
+# 🐘 POSTGRESQL
+# =========================
+*.sql
+*.dump
+
+# =========================
+# ⚙️ DJANGO STATIC FILES
+# =========================
+staticfiles/
+static/
+
+# =========================
+# 🧪 TEST / COVERAGE
+# =========================
+htmlcov/
+.coverage
+.coverage.*
+.cache
+pytest_cache/
+
+# =========================
+# 🧠 IDE / EDITOR
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# 🌐 NODE / NEXT.JS
+# =========================
+node_modules/
+.next/
+out/
+build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# 🔒 OS FILES
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# 🚀 DEPLOYMENT
+# =========================
+*.pem
+*.key
+
+# =========================
+# 🐳 DOCKER (optional)
+# =========================
+*.env.docker
+docker-compose.override.yml

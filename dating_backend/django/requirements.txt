@@ -1,0 +1,8 @@
+django
+djangorestframework 
+djangorestframework-simplejwt 
+django-filter
+django-environ 
+psycopg2-binary
+django-cors-headers
+autoflake

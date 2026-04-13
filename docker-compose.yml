@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./dating_backend/django
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    image: irfanalam13/dating_backend
+
+  frontend:
+    build:
+      context: ./dating_frontend/webnext
+    ports:
+      - "3000:3000"
+    image: irfanalam13/dating_frontend
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: dating
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
