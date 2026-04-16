@@ -5,7 +5,7 @@
 git clone <your-repo-url>
 cd your-project
 
-## 2. Create environment file
+## 2. Setup environment
 
 cp .env.example .env
 
@@ -15,5 +15,11 @@ docker-compose up --build
 
 ## 4. Open in browser
 
-Backend: http://127.0.0.1:8000
 Frontend: http://localhost:3000
+Backend: http://127.0.0.1:8000
+
+## ⚠️ Notes
+
+* First run may take a few minutes
+* Make sure Docker is installed
+* If port error occurs: run `docker-compose down`
