@@ -2,17 +2,22 @@ import environ
 from pathlib import Path
 from datetime import timedelta
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-
 env = environ.Env()
-environ.Env.read_env(BASE_DIR / ".env")
+# Project root (where .env exists)
+ROOT_DIR = Path(__file__).resolve().parents[4]
 
-# 🔐 CORE
+# Django root (where manage.py exists)
+BASE_DIR = Path(__file__).resolve().parents[2]
+
+environ.Env.read_env(ROOT_DIR / ".env")
+
+# ✅ Load .env from root
+
+print("ENV FILE PATH:", BASE_DIR / ".env")
 SECRET_KEY = env("SECRET_KEY", default="unsafe-secret-key")
 DEBUG = env.bool("DEBUG", default=True)
 
-ALLOWED_HOSTS = ["*"]  # 🔥 dev only
-
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
 # 📦 APPS
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -27,9 +32,18 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "rest_framework_simplejwt.token_blacklist",
+    "drf_yasg",
 
     # Local
     "apps.accounts",
+    "apps.auth_system",
+    "apps.chat",
+    "apps.collegeMode",
+    "apps.core",
+    "apps.matcher",
+    "apps.preferences",
+    "apps.profiles.apps.ProfilesConfig",
+
 ]
 
 # ⚙️ MIDDLEWARE
@@ -51,9 +65,7 @@ MIDDLEWARE = [
 AUTH_USER_MODEL = "accounts.User"
 
 # 🔥 AUTH BACKEND (IMPORTANT)
-AUTHENTICATION_BACKENDS = [
-    "django.contrib.auth.backends.ModelBackend",
-]
+
 
 # 🌐 URL
 ROOT_URLCONF = "config.urls"
@@ -110,20 +122,63 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # 🔗 DRF
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "apps.accounts.authentication.CookieJWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",  # 🔥 keep secure
+
     ),
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+        "rest_framework.renderers.BrowsableAPIRenderer",  # ✅ IMPORTANT
+    ],
+
 }
+
 
 # 🔑 JWT
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "AUTH_COOKIE": "access",
+    "AUTH_COOKIE_REFRESH": "refresh",
+    "AUTH_COOKIE_HTTP_ONLY": True,
+    "AUTH_COOKIE_SECURE": True,   # HTTPS only
+    "AUTH_COOKIE_SAMESITE": "None",
+
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
 }
 
+secure=True
+
+SWAGGER_SETTINGS = {
+    "SECURITY_DEFINITIONS": {
+        "Bearer": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": "Enter: Bearer <your_token>",
+        }
+    }
+}
 # 🌐 CORS (DEV)
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+]
+
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+
+AUTHENTICATION_BACKENDS = [
+    "apps.accounts.backends.PhoneOrEmailBackend",
+]

@@ -1,9 +1,8 @@
 from django.urls import path
-from .views import GetProfileView, UpdateProfileView, UploadImageView, GetImagesView
+from profiles.views.profile_view import ProfileView
+from profiles.views.settings_view import ProfileSettingsView
 
 urlpatterns = [
-    path("profile/", GetProfileView.as_view()),
-    path("profile/update/", UpdateProfileView.as_view()),
-    path("profile/upload-image/", UploadImageView.as_view()),
-    path("profile/images/", GetImagesView.as_view()),
+    path("me/", ProfileView.as_view()),
+    path("settings/", ProfileSettingsView.as_view()),
 ]

@@ -14,7 +14,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     username = models.SlugField(max_length=150, unique=True, blank=True)
 
     # 🔐 Auth fields
-    email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True, null=False, blank=False)
     phone = models.CharField(max_length=15, unique=True, null=True, blank=True)
 
     # 🔐 Permissions

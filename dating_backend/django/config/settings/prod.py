@@ -1,17 +1,19 @@
 from .base import *
+from .base import env
 
-DEBUG = False
-ALLOWED_HOSTS = ["your-domain.com"]
+DEBUG: bool = False
 
-DATABASES = {
+ALLOWED_HOSTS: list[str] = env.list("ALLOWED_HOSTS")
+
+DATABASES: dict = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "dating",
-        "USER": "postgres",
-        "PASSWORD": "password",
-        "HOST": "localhost",
-        "PORT": "5432",
+        "NAME": env("DB_NAME"),
+        "USER": env("DB_USER"),
+        "PASSWORD": env("DB_PASSWORD"),
+        "HOST": env("DB_HOST"),
+        "PORT": env.int("DB_PORT"),
     }
 }
 
-SECURE_SSL_REDIRECT = True
+SECURE_SSL_REDIRECT: bool = True

@@ -7,11 +7,17 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from typing import cast, Dict, Any
 
-from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
-from .services.auth_service import AuthService
+from apps.accounts.serializers import RegisterSerializer, LoginSerializer, UserSerializer
+from apps.accounts.services.auth_service import AuthService
 from .utils.response import api_response
-from .security.rate_limit import is_blocked, record_failure, reset_attempts
+from apps.accounts.security.rate_limit import is_blocked, record_failure, reset_attempts
 
+from rest_framework.response import Response
+from drf_yasg.utils import swagger_auto_schema
+
+from rest_framework.views import APIView
+
+from django.conf import settings
 
 def get_tokens(user):
     refresh = RefreshToken.for_user(user)
@@ -24,6 +30,7 @@ def get_tokens(user):
 class AuthViewSet(viewsets.ViewSet):
 
     # 🟢 REGISTER
+    @swagger_auto_schema(request_body=RegisterSerializer)
     @action(detail=False, methods=["post"], permission_classes=[AllowAny])
     @transaction.atomic
     def register(self, request):
@@ -32,9 +39,8 @@ class AuthViewSet(viewsets.ViewSet):
         if not serializer.is_valid():
             return api_response(False, "Invalid data", "REGISTER_ERROR", serializer.errors, 400)
 
-        user = AuthService.create_user(serializer.validated_data)
+        user = serializer.save()
 
-        # 📧 create verification token
         token = AuthService.generate_token(user, "VERIFY_EMAIL", 1440)
 
         return api_response(
@@ -48,57 +54,64 @@ class AuthViewSet(viewsets.ViewSet):
             status.HTTP_201_CREATED
         )
 
-
     # 🟢 LOGIN
+    @swagger_auto_schema(request_body=LoginSerializer)
     @action(detail=False, methods=["post"], permission_classes=[AllowAny])
     def login(self, request):
-        ip = request.META.get("REMOTE_ADDR")
-
-        if is_blocked(ip):
-            return api_response(False, "Too many attempts", "BLOCKED", status_code=429)
-
         serializer = LoginSerializer(data=request.data)
 
         if not serializer.is_valid():
             return api_response(False, "Invalid input", "LOGIN_ERROR", serializer.errors, 400)
 
-        data = cast(Dict[str, Any], serializer.validated_data)
+        user = serializer.validated_data["user"]
 
-        user = AuthService.login_user(
-            data.get("email"),
-            data.get("password")
-        )
-        if not user:
-            record_failure(ip)
-            return api_response(False, "Invalid credentials", "LOGIN_FAILED", status_code=401)
+        tokens = get_tokens(user)
 
-        if not user.is_active:
-            return api_response(False, "Email not verified", "EMAIL_NOT_VERIFIED", status_code=403)
-
-        reset_attempts(ip)
-
-        return api_response(
-            True,
-            "Login successful",
-            "LOGIN_SUCCESS",
-            {
+        response = Response({
+            "success": True,
+            "message": "Login successful",
+            "code": "LOGIN_SUCCESS",
+            "data": {
                 "user": UserSerializer(user).data,
-                "tokens": get_tokens(user)
+                "tokens": tokens  # for Swagger
             }
+        })
+
+        # ✅ Cookies
+        response.set_cookie(
+            key="access",
+            value=tokens["access"],
+            httponly=True,
+            secure=False,  # 🔒 True in production
+            samesite="Lax",
+            path="/"
         )
+
+        response.set_cookie(
+            key="refresh",
+            value=tokens["refresh"],
+            httponly=True,
+            secure=False,
+            samesite="Lax",
+            path="/"
+        )
+
+        return response
+
 
 
     # 🔴 LOGOUT
     @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
     def logout(self, request):
-        try:
-            token = RefreshToken(request.data.get("refresh"))
-            token.blacklist()
+        response = Response({
+            "success": True,
+            "message": "Logged out",
+        })
 
-            return api_response(True, "Logged out", "LOGOUT_SUCCESS")
+        response.delete_cookie("access")
+        response.delete_cookie("refresh")
 
-        except Exception:
-            return api_response(False, "Invalid token", "INVALID_TOKEN", status_code=400)
+        return response
 
 
     # 📧 VERIFY EMAIL
@@ -116,7 +129,7 @@ class AuthViewSet(viewsets.ViewSet):
 
 
     # 🔑 FORGOT PASSWORD
-    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
+    @action(detail=False, methods=["post"],  permission_classes=[AllowAny])
     def forgot_password(self, request):
         email = request.data.get("email")
 
@@ -147,8 +160,93 @@ class AuthViewSet(viewsets.ViewSet):
 
 
     # 👤 PROFILE
-    @action(detail=False, methods=["get"], url_path="profile/(?P<username>[^/.]+)", permission_classes=[AllowAny])
+    @action(detail=False, methods=["get"], url_path="profile/(?P<username>[^/.]+)", permission_classes=[IsAuthenticated])
     def profile(self, request, username=None):
 
         user = get_object_or_404(User, username=username)
         return api_response(True, "Profile fetched", "PROFILE_SUCCESS", UserSerializer(user).data)
+
+
+
+    # 👤 CURRENT USER (ME)
+    @action(
+        detail=False,
+        methods=["get"],
+        permission_classes=[IsAuthenticated],
+        url_path="me"
+    )
+    def me(self, request):
+        user = request.user
+
+        # 🛑 Safety check (optional but recommended)
+        if not user or not user.is_authenticated:
+            return api_response(
+                False,
+                "Unauthorized",
+                "UNAUTHORIZED",
+                status_code=401
+            )
+
+        return api_response(
+            True,
+            "User fetched successfully",
+            "USER_SUCCESS",
+            UserSerializer(user).data
+        )
+
+
+
+
+class CookieTokenRefreshView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        refresh_token = request.COOKIES.get("refresh")
+
+        if not refresh_token:
+            return Response(
+                {"error": "No refresh token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            old_refresh = RefreshToken(refresh_token)
+
+            # ✅ ROTATE TOKENS PROPERLY
+            new_refresh = RefreshToken.for_user(old_refresh.user)
+            new_access = new_refresh.access_token
+
+            response = Response({
+                "success": True,
+                "message": "Token refreshed"
+            })
+
+            # ✅ Access token cookie
+            response.set_cookie(
+                key="access",
+                value=str(new_access),
+                httponly=True,
+                secure=not settings.DEBUG,   # True in production
+                samesite="None" if not settings.DEBUG else "Lax",
+                max_age=60 * 15,  # 15 minutes
+                path="/"
+            )
+
+            # ✅ Refresh token cookie
+            response.set_cookie(
+                key="refresh",
+                value=str(new_refresh),
+                httponly=True,
+                secure=not settings.DEBUG,
+                samesite="None" if not settings.DEBUG else "Lax",
+                max_age=60 * 60 * 24 * 7,  # 7 days
+                path="/"
+            )
+
+            return response
+
+        except Exception:
+            return Response(
+                {"error": "Invalid or expired refresh token"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )           
