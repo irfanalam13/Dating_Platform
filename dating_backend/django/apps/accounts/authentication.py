@@ -27,3 +27,5 @@ class CookieJWTAuthentication(JWTAuthentication):
 
         except Exception:
             raise AuthenticationFailed("Invalid or expired token")
+
+

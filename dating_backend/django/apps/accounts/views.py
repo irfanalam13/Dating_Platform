@@ -31,7 +31,11 @@ class AuthViewSet(viewsets.ViewSet):
 
     # 🟢 REGISTER
     @swagger_auto_schema(request_body=RegisterSerializer)
-    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
+    @action(detail=False, 
+    methods=["post"], 
+    permission_classes=[AllowAny],
+    authentication_classes=[]
+    )
     @transaction.atomic
     def register(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -56,7 +60,11 @@ class AuthViewSet(viewsets.ViewSet):
 
     # 🟢 LOGIN
     @swagger_auto_schema(request_body=LoginSerializer)
-    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
+    @action(detail=False, 
+    methods=["post"], 
+    permission_classes=[AllowAny],
+    authentication_classes=[]
+    )
     def login(self, request):
         serializer = LoginSerializer(data=request.data)
 
