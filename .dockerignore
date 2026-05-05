@@ -1,0 +1,60 @@
+# =========================
+# Git
+# =========================
+.git
+.gitignore
+
+# =========================
+# Python / Django
+# =========================
+__pycache__/
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+db.sqlite3
+.env
+.venv/
+venv/
+
+# =========================
+# Node / Next.js
+# =========================
+node_modules/
+npm-debug.log
+yarn-error.log
+.next/
+out/
+
+# =========================
+# OS / Editor
+# =========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# =========================
+# Docker
+# =========================
+docker-compose.override.yml
+
+# =========================
+# Build / Logs
+# =========================
+*.log
+
+# =========================
+# Media / Static (optional)
+# =========================
+media/
+staticfiles/
+
+# =========================
+# Large files (optional)
+# =========================
+*.zip
+*.tar
+*.gz
+

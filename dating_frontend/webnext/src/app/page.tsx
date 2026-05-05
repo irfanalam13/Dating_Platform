@@ -17,4 +17,6 @@ export default function Page() {
   if (loading) return <div>Loading...</div>;
 
   return <div>Shree Page ✅</div>;
+
 }
+

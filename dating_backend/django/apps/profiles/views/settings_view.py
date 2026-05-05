@@ -2,8 +2,8 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from profiles.models.settings import ProfileSettings
-from profiles.serializers.settings_serializer import ProfileSettingsSerializer
+from apps.profiles.models.settings import ProfileSettings
+from apps.profiles.serializers.settings_serializer import ProfileSettingsSerializer
 
 
 class ProfileSettingsView(APIView):
@@ -23,3 +23,5 @@ class ProfileSettingsView(APIView):
         settings.save()
         serializer = ProfileSettingsSerializer(settings)
         return Response(serializer.data)
+    
+    

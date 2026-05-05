@@ -4,7 +4,7 @@ from django.core.cache import cache
 
 from django.shortcuts import get_object_or_404
 
-from profiles.models.profile import Profile
+from apps.profiles.models.profile import Profile
 
 
 CACHE_TIMEOUT = 60 * 5  # 5 minutes
@@ -34,12 +34,13 @@ def get_profile_cached(user_id):
     )
 
     data = {
-        "id": profile.id,
-        "user_id": profile.user_id,
-        "bio": profile.bio,
-        "location": profile.location,
-        "profile_image": profile.profile_image.url if profile.profile_image else None,
-    }
+    "id": profile.id,
+    "user_id": profile.user_id,
+    "bio": profile.bio,
+    "latitude": profile.latitude,
+    "longitude": profile.longitude,
+    "profile_image": profile.profile_image.url if profile.profile_image else None,
+}
 
     cache.set(cache_key, data, timeout=CACHE_TIMEOUT)
 

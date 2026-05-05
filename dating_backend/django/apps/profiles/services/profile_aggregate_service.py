@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404
 from django.core.cache import cache
 
-from profiles.models.profile import Profile
+from apps.profiles.models.profile import Profile
 
 
 CACHE_TIMEOUT = 60 * 5  # 5 minutes
@@ -32,21 +32,32 @@ def get_profile_full_data(viewer, user_id):
         user_id=user_id
     )
 
-    stats = profile.profilestats
-    settings = profile.profilesettings
+    stats = profile.stats # type: ignore
+    settings = profile.settings # pyright: ignore[reportAttributeAccessIssue]
 
     # 🔐 Privacy Check
-    if settings.is_private and viewer.id != user_id:
+    if settings.is_private and (not viewer or viewer.id != user_id):
         return {
             "is_private": True
         }
 
+    # data = {
+    #     "profile": profile,
+    #     "stats": stats,
+    #     "settings": settings,
+    #     "is_private": False
+    # }
     data = {
-        "profile": profile,
-        "stats": stats,
-        "settings": settings,
-        "is_private": False
+        "profile": {
+            "bio": profile.bio,
+            "location": profile.location,
+            "username": profile.user.username,
+        },
+        "stats": {
+            "followers": stats.followers_count,
+        },
     }
+
 
     # ✅ Cache safe data (short TTL)
     cache.set(cache_key, data, timeout=CACHE_TIMEOUT)

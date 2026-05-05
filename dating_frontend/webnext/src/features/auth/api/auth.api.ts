@@ -10,11 +10,10 @@ export const registerUser = async (
 };
 
 
+
 // 🟢 LOGIN
 export const loginUser = async (data: LoginPayload): Promise<AuthResponse> => {
-  const res = await api.post("/auth/login/", data, {
-    withCredentials: true, // ✅ correct place
-  });
+  const res = await api.post("/auth/login/", data);
   return res.data;
 };
 

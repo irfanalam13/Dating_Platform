@@ -3,13 +3,12 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.utils.text import slugify
 from django.utils import timezone
 import uuid
-
 from .managers import UserManager
 
 
-class User(AbstractBaseUser, PermissionsMixin):
-    full_name = models.CharField(max_length=255)
 
+class User(AbstractBaseUser, PermissionsMixin):
+    full_name = models.CharField(max_length=255, null=True, blank=True)
     # 🔥 Public identity (profile URL)
     username = models.SlugField(max_length=150, unique=True, blank=True)
 
@@ -18,6 +17,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone = models.CharField(max_length=15, unique=True, null=True, blank=True)
 
     # 🔐 Permissions
+    
     is_active = models.BooleanField(default=False)  # email verification required
     is_staff = models.BooleanField(default=False)
 
@@ -30,7 +30,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def save(self, *args, **kwargs):
         if not self.username:
-            base = slugify(self.full_name) or "user"
+            base = slugify(self.full_name) or "user" # type: ignore
             username = base
             counter = 1
 
@@ -41,10 +41,13 @@ class User(AbstractBaseUser, PermissionsMixin):
 
             self.username = username
 
+
+
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.username or self.email
+
 
 
 # 🔐 TOKEN MODEL (EMAIL VERIFY + RESET PASSWORD)

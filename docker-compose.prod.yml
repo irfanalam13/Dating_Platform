@@ -29,7 +29,7 @@ services:
       - backend
 
   db:
-    image: postgres:15
+    build: ./db
     environment:
       POSTGRES_DB: dating
       POSTGRES_USER: postgres

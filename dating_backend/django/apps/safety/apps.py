@@ -2,4 +2,4 @@ from django.apps import AppConfig
 
 
 class SafetyConfig(AppConfig):
-    name = 'safety'
+    name = 'apps.safety'

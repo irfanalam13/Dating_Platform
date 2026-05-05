@@ -1,5 +1,5 @@
-# frontend/Dockerfile
-FROM node:20
+# ---- Build Stage ----
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -8,4 +8,21 @@ RUN npm install
 
 COPY . .
 
-CMD ["npm", "run", "dev"]
+RUN npm run build
+
+
+# ---- Production Stage ----
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install --production
+
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/next.config.* ./
+
+EXPOSE 3000
+
+CMD ["npm", "start"]

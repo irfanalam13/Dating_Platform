@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   db:
-    image: postgres:15
+    build: ./db
     environment:
       POSTGRES_DB: dating
       POSTGRES_USER: postgres

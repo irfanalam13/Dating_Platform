@@ -1,4 +1,4 @@
-import { api } from "@/shared/lib/api";
+import api from "@/shared/lib/api";
 
 export const registerUser = (data: any) => {
   return api.post("/auth/register/", data);

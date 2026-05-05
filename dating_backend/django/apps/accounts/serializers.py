@@ -11,6 +11,8 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ["id", "full_name", "email", "username", "profile_url"]
 
+    # def get_profile_url(self, obj):
+    #     return f"/{obj.user.username}"
     def get_profile_url(self, obj):
         return f"/{obj.username}"
 
@@ -45,7 +47,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data.pop("confirm_password")
         password = validated_data.pop("password")
 
-        user = User.objects.create_user(**validated_data)
+        user = User.objects.create_user(**validated_data) # type: ignore
         user.set_password(password)
         user.is_active = True  # ⚠️ dev only
         user.save()

@@ -1,12 +1,14 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import AuthViewSet, CookieTokenRefreshView
+from .views import AuthViewSet, CookieTokenRefreshView, CSRFView, MeView
 
 router = DefaultRouter()
 router.register("", AuthViewSet, basename="auth")
 
 urlpatterns = [
     path("auth/refresh/", CookieTokenRefreshView.as_view()),
+    path("csrf/", CSRFView.as_view()),
+    path("profile/me/", MeView.as_view()),
 ]
 
 urlpatterns += router.urls

@@ -1,17 +1,22 @@
 
 services:
   db:
-    image: postgres:15
+    build: ./db
     container_name: postgres_db
     restart: always
     environment:
-      POSTGRES_DB: dating
+      POSTGRES_DB: dating_app
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"   # ✅ optional (for pgAdmin)
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   backend:
     build:
@@ -19,6 +24,7 @@ services:
     container_name: django_backend
     command: >
       sh -c "
+      sleep 5 &&
       python manage.py migrate &&
       python manage.py runserver 0.0.0.0:8000
       "
@@ -32,19 +38,25 @@ services:
       - ./dating_backend/django:/app
     depends_on:
       - db
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   frontend:
     build:
       context: ./dating_frontend/webnext
     container_name: next_frontend
-    command: npm run dev   # ✅ removed npm install
+    command: npm start   # ✅ production mode
     ports:
       - "3000:3000"
-    volumes:
-      - ./dating_frontend/webnext:/app
-      - /app/node_modules
     depends_on:
       - backend
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:
+  node_modules:

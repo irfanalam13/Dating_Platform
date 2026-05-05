@@ -6,18 +6,18 @@ from .models import User
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from typing import cast, Dict, Any
-
 from apps.accounts.serializers import RegisterSerializer, LoginSerializer, UserSerializer
 from apps.accounts.services.auth_service import AuthService
 from .utils.response import api_response
 from apps.accounts.security.rate_limit import is_blocked, record_failure, reset_attempts
-
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
-
 from rest_framework.views import APIView
-
 from django.conf import settings
+from rest_framework_simplejwt.exceptions import TokenError
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils.decorators import method_decorator
+
 
 def get_tokens(user):
     refresh = RefreshToken.for_user(user)
@@ -71,8 +71,9 @@ class AuthViewSet(viewsets.ViewSet):
         if not serializer.is_valid():
             return api_response(False, "Invalid input", "LOGIN_ERROR", serializer.errors, 400)
 
-        user = serializer.validated_data["user"]
 
+        data = cast(Dict[str, Any], serializer.validated_data)
+        user = data["user"]
         tokens = get_tokens(user)
 
         response = Response({
@@ -81,7 +82,6 @@ class AuthViewSet(viewsets.ViewSet):
             "code": "LOGIN_SUCCESS",
             "data": {
                 "user": UserSerializer(user).data,
-                "tokens": tokens  # for Swagger
             }
         })
 
@@ -90,8 +90,9 @@ class AuthViewSet(viewsets.ViewSet):
             key="access",
             value=tokens["access"],
             httponly=True,
-            secure=False,  # 🔒 True in production
-            samesite="Lax",
+            secure=not settings.DEBUG,
+            samesite="None" if not settings.DEBUG else "Lax",
+            max_age=60 * 15,  # 15 minutes
             path="/"
         )
 
@@ -99,8 +100,9 @@ class AuthViewSet(viewsets.ViewSet):
             key="refresh",
             value=tokens["refresh"],
             httponly=True,
-            secure=False,
-            samesite="Lax",
+            secure=not settings.DEBUG,
+            samesite="None" if not settings.DEBUG else "Lax",
+            max_age=60 * 60 * 24 * 7,  # 7 days
             path="/"
         )
 
@@ -108,18 +110,36 @@ class AuthViewSet(viewsets.ViewSet):
 
 
 
-    # 🔴 LOGOUT
     @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
     def logout(self, request):
+        refresh_token = request.COOKIES.get("refresh")
+
+        # 🔐 Try to blacklist refresh token
+        if refresh_token:
+            try:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+            except TokenError:
+                pass  # already invalid or expired
+
         response = Response({
             "success": True,
-            "message": "Logged out",
-        })
+            "code": "LOGOUT_SUCCESS",
+            "message": "Logged out successfully"
+        }, status=200)
 
-        response.delete_cookie("access")
-        response.delete_cookie("refresh")
+        # 🍪 Cookie config (must match login)
+        cookie_config = {
+            "path": "/",
+            "samesite": "None" if not settings.DEBUG else "Lax",
+            "secure": not settings.DEBUG,
+        }
+
+        response.delete_cookie("access", **cookie_config)
+        response.delete_cookie("refresh", **cookie_config)
 
         return response
+
 
 
     # 📧 VERIFY EMAIL
@@ -153,6 +173,7 @@ class AuthViewSet(viewsets.ViewSet):
             return api_response(False, "User not found", "USER_NOT_FOUND", status_code=404)
 
 
+
     # 🔁 RESET PASSWORD
     @action(detail=False, methods=["post"], permission_classes=[AllowAny])
     def reset_password(self, request):
@@ -165,6 +186,7 @@ class AuthViewSet(viewsets.ViewSet):
         user.save()
 
         return api_response(True, "Password reset successful", "PASSWORD_RESET")
+
 
 
     # 👤 PROFILE
@@ -204,6 +226,19 @@ class AuthViewSet(viewsets.ViewSet):
 
 
 
+class MeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({
+            "success": True,
+            "data": {
+                "id": request.user.id,
+                "email": request.user.email,
+                "username": request.user.username
+            }
+        })
+
 
 class CookieTokenRefreshView(APIView):
     permission_classes = [AllowAny]
@@ -213,48 +248,90 @@ class CookieTokenRefreshView(APIView):
 
         if not refresh_token:
             return Response(
-                {"error": "No refresh token"},
+                {"success": False, "code": "NO_REFRESH_TOKEN"},
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
         try:
             old_refresh = RefreshToken(refresh_token)
 
-            # ✅ ROTATE TOKENS PROPERLY
-            new_refresh = RefreshToken.for_user(old_refresh.user)
+            # 🔐 1. Reuse detection (VERY IMPORTANT)
+            try:
+                if old_refresh.check_blacklist():
+                    return Response(
+                        {"success": False, "code": "TOKEN_REUSED"},
+                        status=status.HTTP_401_UNAUTHORIZED
+                    )
+            except AttributeError:
+                # blacklist app not enabled
+                pass
+
+            # 👤 2. Get user safely
+            user_id = old_refresh["user_id"]
+            user = User.objects.get(id=user_id)
+
+            # 🔁 3. Rotate refresh token
+            try:
+                old_refresh.blacklist()
+            except AttributeError:
+                pass
+
+            new_refresh = RefreshToken.for_user(user)
             new_access = new_refresh.access_token
 
             response = Response({
                 "success": True,
-                "message": "Token refreshed"
+                "code": "TOKEN_REFRESHED"
             })
 
-            # ✅ Access token cookie
+            # 🍪 4. Cookie config (production-ready)
+            cookie_config = {
+                "httponly": True,
+                "secure": not settings.DEBUG,
+                "samesite": "None" if not settings.DEBUG else "Lax",
+                "path": "/",
+            }
+
             response.set_cookie(
                 key="access",
                 value=str(new_access),
-                httponly=True,
-                secure=not settings.DEBUG,   # True in production
-                samesite="None" if not settings.DEBUG else "Lax",
-                max_age=60 * 15,  # 15 minutes
-                path="/"
+                max_age=60 * 15,
+                **cookie_config
             )
 
-            # ✅ Refresh token cookie
             response.set_cookie(
                 key="refresh",
                 value=str(new_refresh),
-                httponly=True,
-                secure=not settings.DEBUG,
-                samesite="None" if not settings.DEBUG else "Lax",
-                max_age=60 * 60 * 24 * 7,  # 7 days
-                path="/"
+                max_age=60 * 60 * 24 * 7,
+                **cookie_config
             )
 
             return response
 
-        except Exception:
+        except User.DoesNotExist:
             return Response(
-                {"error": "Invalid or expired refresh token"},
+                {"success": False, "code": "USER_NOT_FOUND"},
                 status=status.HTTP_401_UNAUTHORIZED
-            )           
+            )
+
+        except TokenError:
+            return Response(
+                {"success": False, "code": "INVALID_TOKEN"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        except Exception as e:
+            # 🧠 Production debugging
+            print("REFRESH ERROR:", str(e))
+            return Response(
+                {"success": False, "code": "SERVER_ERROR"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+
+
+
+@method_decorator(ensure_csrf_cookie, name="dispatch")
+class CSRFView(APIView):
+    def get(self, request):
+        return Response({"success": True})

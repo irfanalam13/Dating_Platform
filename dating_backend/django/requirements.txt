@@ -1,3 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 django
 djangorestframework 
 djangorestframework-simplejwt 
@@ -7,4 +9,11 @@ psycopg2-binary
 django-cors-headers
 autoflake
 pillow
-install drf-yasg
+drf-yasg
+pgvector
+gunicorn
+torch==2.2.0+cpu
+sentence-transformers
+
+channels 
+channels-redis

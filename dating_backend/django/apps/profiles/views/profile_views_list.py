@@ -2,8 +2,8 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from profiles.models.profile_view import ProfileView
-from profiles.serializers.profile_serializer import ProfileSerializer
+from apps.profiles.models.profile_view import ProfileView
+from apps.profiles.serializers.profile_serializer import ProfileSerializer
 
 
 class WhoViewedMeView(APIView):
@@ -19,7 +19,7 @@ class WhoViewedMeView(APIView):
 
         data = [
             {
-                "user_id": v.viewer.id,
+                "user_id": v.viewer.id, # type: ignore
                 "username": v.viewer.username,
                 "viewed_at": v.created_at
             }

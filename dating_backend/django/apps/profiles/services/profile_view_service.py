@@ -1,9 +1,9 @@
 from django.utils.timezone import now
-from profiles.models.profile_view import ProfileView
+from apps.profiles.models.profile_view import ProfileView
 
 
 def track_profile_view(viewer, viewed):
-    from profiles.models.settings import ProfileSettings
+    from apps.profiles.models.settings import ProfileSettings
 
     settings = ProfileSettings.objects.only(
         "anonymous_viewing"

@@ -1,6 +1,6 @@
 from datetime import timedelta
 from django.utils.timezone import now
-from profiles.models.profile_view import ProfileView
+from apps.profiles.models.profile_view import ProfileView
 
 
 def delete_old_views():

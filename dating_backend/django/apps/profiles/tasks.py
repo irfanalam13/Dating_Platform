@@ -1,7 +1,7 @@
 # profiles/tasks.py
 
 from celery import shared_task
-from profiles.models.profile_view import ProfileView
+from apps.profiles.models.profile_view import ProfileView
 
 
 @shared_task
