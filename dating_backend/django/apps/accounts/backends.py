@@ -10,11 +10,13 @@ class PhoneOrEmailBackend(ModelBackend):
         try:
             user = None
 
-            # Try email
+            # Try email, then phone, then username for MVP login flexibility.
             if username and "@" in username:
                 user = User.objects.filter(email=username).first()
-            else:
+            elif username:
                 user = User.objects.filter(phone=username).first()
+                if not user:
+                    user = User.objects.filter(username=username).first()
 
             if user and user.check_password(password):
                 return user

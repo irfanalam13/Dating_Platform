@@ -29,7 +29,6 @@ else:
 
 # Safely load the variables
 DB_NAME = env("DB_NAME", default="NOT_FOUND")
-print("DB_NAME =", DB_NAME)
 
 
 SECRET_KEY = env("SECRET_KEY", default="unsafe-secret-key") # type: ignore

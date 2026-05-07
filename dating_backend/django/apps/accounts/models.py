@@ -16,9 +16,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True, null=False, blank=False)
     phone = models.CharField(max_length=15, unique=True, null=True, blank=True)
 
-    # 🔐 Permissions
-    
-    is_active = models.BooleanField(default=False)  # email verification required
+    # is_active = models.BooleanField(default=False)  # email verification required
+    is_active = models.BooleanField(default=True)  # ✅ active by default for MVP
     is_staff = models.BooleanField(default=False)
 
     date_joined = models.DateTimeField(auto_now_add=True)

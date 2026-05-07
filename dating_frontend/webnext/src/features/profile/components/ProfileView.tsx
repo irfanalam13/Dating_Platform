@@ -3,12 +3,13 @@
 import { useState } from 'react';
 import ProfileCard from './ProfileCard';
 import SettingsPage from './SettingsPage';
+import type { ProfileData } from './ProfileCard';
 
-export default function ProfileView({ data }: { data: any }) {
+export default function ProfileView({ data }: { data: ProfileData }) {
   const [showSettings, setShowSettings] = useState(false);
 
   if (showSettings) {
-    return <SettingsPage onBack={() => setShowSettings(false)} />;
+    return <SettingsPage />;
   }
 
   return (

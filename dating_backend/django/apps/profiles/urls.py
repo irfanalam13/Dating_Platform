@@ -9,19 +9,13 @@ from apps.profiles.views.profile_view import (
     GeoAIRecommendationView,
     get_profile_by_username,
 )
-from apps.profiles.views.settings_view import ProfileSettingsView
 
 urlpatterns = [
     # 🔹 Self Profile
     path("me/", ProfileView.as_view(), name="my-profile"),
+    path("<int:user_id>/", ProfileDetailView.as_view(), name="profile-detail"),
 
     # 🔹 Public Profiles
-    path("user/<int:user_id>/", ProfileDetailView.as_view(), name="profile-detail"),
-    path("username/<str:username>/", get_profile_by_username, name="profile-by-username"),
-
-    # 🔹 Settings
-    path("settings/", ProfileSettingsView.as_view(), name="profile-settings"),
-
     # 🔹 Media
     path("upload-image/", UploadImageView.as_view(), name="upload-image"),
     path("delete-image/<int:id>/", DeleteImageView.as_view(), name="delete-image"),

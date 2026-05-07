@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useEffect, useState } from "react";
-import api from "@/shared/lib/api";
+import api from "@/shared/api/client";
 
 type User = {
   id: number;
@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // 🔁 Load user (used everywhere)
   const fetchUser = async () => {
     try {
-      const res = await api.get("/auth/profile/me/");
+      const res = await api.get("/profile/me/");
       setUser(res.data.data);
     } catch {
       setUser(null);

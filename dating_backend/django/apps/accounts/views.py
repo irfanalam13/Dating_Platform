@@ -2,6 +2,9 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework.response import Response
 from .models import User
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -10,13 +13,10 @@ from apps.accounts.serializers import RegisterSerializer, LoginSerializer, UserS
 from apps.accounts.services.auth_service import AuthService
 from .utils.response import api_response
 from apps.accounts.security.rate_limit import is_blocked, record_failure, reset_attempts
-from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
-from rest_framework.views import APIView
 from django.conf import settings
-from rest_framework_simplejwt.exceptions import TokenError
-from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 
 
 def get_tokens(user):
@@ -29,13 +29,8 @@ def get_tokens(user):
 
 class AuthViewSet(viewsets.ViewSet):
 
-    # 🟢 REGISTER
-    @swagger_auto_schema(request_body=RegisterSerializer)
-    @action(detail=False, 
-    methods=["post"], 
-    permission_classes=[AllowAny],
-    authentication_classes=[]
-    )
+    # Register
+    @action(detail=False, methods=["post"], permission_classes=[AllowAny], authentication_classes=[])
     @transaction.atomic
     def register(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -47,9 +42,15 @@ class AuthViewSet(viewsets.ViewSet):
 
         token = AuthService.generate_token(user, "VERIFY_EMAIL", 1440)
 
-        return api_response(
+        # ✅ Generate JWT tokens so user is logged in immediately
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        response = api_response(
             True,
-            "Registration successful. Verify your email.",
+            "Registration successful.",
             "REGISTER_SUCCESS",
             {
                 "user": UserSerializer(user).data,
@@ -58,6 +59,12 @@ class AuthViewSet(viewsets.ViewSet):
             status.HTTP_201_CREATED
         )
 
+        # ✅ Set the same cookies your login sets
+        response.set_cookie("access", access_token, httponly=True, samesite="Lax", secure=False)
+        response.set_cookie("refresh", refresh_token, httponly=True, samesite="Lax", secure=False)
+        response.set_cookie("logged_in", "true", httponly=False, samesite="Lax", secure=False, max_age=60*60*24*7)
+
+        return response
     # 🟢 LOGIN
     @swagger_auto_schema(request_body=LoginSerializer)
     @action(detail=False, 
@@ -86,13 +93,14 @@ class AuthViewSet(viewsets.ViewSet):
         })
 
         # ✅ Cookies
+        # In login view:
         response.set_cookie(
             key="access",
             value=tokens["access"],
             httponly=True,
             secure=not settings.DEBUG,
-            samesite="None" if not settings.DEBUG else "Lax",
-            max_age=60 * 15,  # 15 minutes
+            samesite="Lax" if settings.DEBUG else "None",  # ✅
+            max_age=60 * 15,
             path="/"
         )
 
@@ -101,26 +109,24 @@ class AuthViewSet(viewsets.ViewSet):
             value=tokens["refresh"],
             httponly=True,
             secure=not settings.DEBUG,
-            samesite="None" if not settings.DEBUG else "Lax",
-            max_age=60 * 60 * 24 * 7,  # 7 days
+            samesite="Lax" if settings.DEBUG else "None",  # ✅
+            max_age=60 * 60 * 24 * 7,
             path="/"
         )
 
         return response
 
 
-
-    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=["post"], permission_classes=[AllowAny])
     def logout(self, request):
         refresh_token = request.COOKIES.get("refresh")
 
-        # 🔐 Try to blacklist refresh token
         if refresh_token:
             try:
                 token = RefreshToken(refresh_token)
                 token.blacklist()
-            except TokenError:
-                pass  # already invalid or expired
+            except Exception:
+                pass
 
         response = Response({
             "success": True,
@@ -128,19 +134,12 @@ class AuthViewSet(viewsets.ViewSet):
             "message": "Logged out successfully"
         }, status=200)
 
-        # 🍪 Cookie config (must match login)
-        cookie_config = {
-            "path": "/",
-            "samesite": "None" if not settings.DEBUG else "Lax",
-            "secure": not settings.DEBUG,
-        }
-
-        response.delete_cookie("access", **cookie_config)
-        response.delete_cookie("refresh", **cookie_config)
+        response.set_cookie("access", "", max_age=0, path="/", httponly=True,
+            samesite="Lax" if settings.DEBUG else "None", secure=not settings.DEBUG)
+        response.set_cookie("refresh", "", max_age=0, path="/", httponly=True,
+            samesite="Lax" if settings.DEBUG else "None", secure=not settings.DEBUG)
 
         return response
-
-
 
     # 📧 VERIFY EMAIL
     @action(detail=False, methods=["post"], permission_classes=[AllowAny])
@@ -226,25 +225,22 @@ class AuthViewSet(viewsets.ViewSet):
 
 
 
-class MeView(APIView):
-    permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        return Response({
-            "success": True,
-            "data": {
-                "id": request.user.id,
-                "email": request.user.email,
-                "username": request.user.username
-            }
-        })
-
-
+# -------------------------------------------------------------
+# 🔄 TOKEN REFRESH VIEW
+# -------------------------------------------------------------
+# We exempt this from CSRF because if a user's session is dead, 
+# their CSRF token might also be dead. We need them to be able 
+# to rotate their tokens to recover their session.
+@method_decorator(csrf_exempt, name="dispatch")
 class CookieTokenRefreshView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = [] # Do not enforce auth on the refresh route itself
 
     def post(self, request):
-        refresh_token = request.COOKIES.get("refresh")
+        # 1. Extract cookie name from settings (fallback to "refresh" if not found)
+        refresh_cookie_name = getattr(settings, "SIMPLE_JWT", {}).get("AUTH_COOKIE_REFRESH", "refresh")
+        refresh_token = request.COOKIES.get(refresh_cookie_name)
 
         if not refresh_token:
             return Response(
@@ -253,29 +249,21 @@ class CookieTokenRefreshView(APIView):
             )
 
         try:
+            # 2. Instantiate token (This AUTOMATICALLY checks validity and the blacklist)
             old_refresh = RefreshToken(refresh_token)
 
-            # 🔐 1. Reuse detection (VERY IMPORTANT)
-            try:
-                if old_refresh.check_blacklist():
-                    return Response(
-                        {"success": False, "code": "TOKEN_REUSED"},
-                        status=status.HTTP_401_UNAUTHORIZED
-                    )
-            except AttributeError:
-                # blacklist app not enabled
-                pass
-
-            # 👤 2. Get user safely
+            # 3. Get user safely
             user_id = old_refresh["user_id"]
             user = User.objects.get(id=user_id)
 
-            # 🔁 3. Rotate refresh token
+            # 4. Rotate refresh token (Blacklist the old one)
             try:
                 old_refresh.blacklist()
             except AttributeError:
+                # Blacklist app is not enabled in settings
                 pass
 
+            # Generate new tokens
             new_refresh = RefreshToken.for_user(user)
             new_access = new_refresh.access_token
 
@@ -284,25 +272,38 @@ class CookieTokenRefreshView(APIView):
                 "code": "TOKEN_REFRESHED"
             })
 
-            # 🍪 4. Cookie config (production-ready)
+            # 5. Cookie config (production-ready and environment-aware)
+            is_secure = not settings.DEBUG
             cookie_config = {
                 "httponly": True,
-                "secure": not settings.DEBUG,
-                "samesite": "None" if not settings.DEBUG else "Lax",
+                "secure": is_secure,
+                "samesite": "None" if is_secure else "Lax",
                 "path": "/",
             }
 
+            # 6. Dynamically calculate max_age from settings (prevents desync)
+            access_lifetime = getattr(settings, "SIMPLE_JWT", {}).get("ACCESS_TOKEN_LIFETIME")
+            refresh_lifetime = getattr(settings, "SIMPLE_JWT", {}).get("REFRESH_TOKEN_LIFETIME")
+            
+            # Fallbacks in case lifetimes are not explicitly set in settings
+            access_max_age = int(access_lifetime.total_seconds()) if access_lifetime else 60 * 15
+            refresh_max_age = int(refresh_lifetime.total_seconds()) if refresh_lifetime else 60 * 60 * 24 * 7
+
+            access_cookie_name = getattr(settings, "SIMPLE_JWT", {}).get("AUTH_COOKIE", "access")
+
+            # Set Access Cookie
             response.set_cookie(
-                key="access",
+                key=access_cookie_name,
                 value=str(new_access),
-                max_age=60 * 15,
+                max_age=access_max_age,
                 **cookie_config
             )
 
+            # Set Refresh Cookie
             response.set_cookie(
-                key="refresh",
+                key=refresh_cookie_name,
                 value=str(new_refresh),
-                max_age=60 * 60 * 24 * 7,
+                max_age=refresh_max_age,
                 **cookie_config
             )
 
@@ -315,23 +316,29 @@ class CookieTokenRefreshView(APIView):
             )
 
         except TokenError:
+            # This triggers if the token is expired, invalid, or already blacklisted
             return Response(
                 {"success": False, "code": "INVALID_TOKEN"},
                 status=status.HTTP_401_UNAUTHORIZED
             )
 
         except Exception as e:
-            # 🧠 Production debugging
+            # Production debugging
             print("REFRESH ERROR:", str(e))
             return Response(
                 {"success": False, "code": "SERVER_ERROR"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        
 
 
-
+# -------------------------------------------------------------
+# 🍪 CSRF VIEW
+# -------------------------------------------------------------
 @method_decorator(ensure_csrf_cookie, name="dispatch")
 class CSRFView(APIView):
+    # Must be AllowAny so the frontend can fetch the CSRF token BEFORE logging in
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
     def get(self, request):
-        return Response({"success": True})
+        return Response({"success": True, "message": "CSRF cookie set"})

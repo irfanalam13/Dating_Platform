@@ -29,6 +29,11 @@ class Profile(models.Model):
 
     hobbies = models.TextField(blank=True)
     preferences = models.TextField(blank=True)
+    relationship_intent = models.CharField(max_length=40, blank=True)
+    education = models.CharField(max_length=120, blank=True)
+    career = models.CharField(max_length=120, blank=True)
+    values = models.TextField(blank=True)
+    ethnicity = models.CharField(max_length=100, blank=True)
     full_name = models.CharField(max_length=255, null=True, blank=True)
     bio = models.TextField(blank=True)
 

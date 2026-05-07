@@ -1,333 +1,166 @@
-// 'use client';
+"use client";
 
-// import React, { useState } from 'react';
-// import { ChevronLeft, Search, HelpCircle } from 'lucide-react';
-
-// export default function SettingsPage() {
-//   const [expandedSection, setExpandedSection] = useState<string | null>(null);
-//   const [searchSettings, setSearchSettings] = useState('');
-
-//   const settingsSections = [
-//     {
-//       id: 'user',
-//       label: 'User settings',
-//       icon: '',
-//       items: ['Profile', 'Email & password', 'Phone number', 'Privacy'],
-//     },
-//     {
-//       id: 'filter',
-//       label: 'Filter Preferences',
-//       icon: '',
-//       items: ['Age range', 'Location', 'Height', 'Religion'],
-//     },
-//     {
-//       id: 'safety',
-//       label: 'Safety Options',
-//       icon: '',
-//       items: ['Block list', 'Report abuse', 'Verification', 'Privacy settings'],
-//     },
-//     {
-//       id: 'blocked',
-//       label: 'Blocked Contacts',
-//       icon: '',
-//       items: ['View blocked users', 'Unblock', 'Manage blocks'],
-//     },
-//   ];
-
-//   const filteredSections = settingsSections.filter(section =>
-//     section.label.toLowerCase().includes(searchSettings.toLowerCase())
-//   );
-
-//   return (
-//     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4 flex items-center justify-center">
-//       <div className="w-full max-w-md">
-//         {/* Mobile Phone Frame */}
-//         {/* <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border-8 border-slate-900"> */}
-          
-//           {/* STATUS BAR */}
-//           {/* <div className="bg-slate-900 text-white px-6 py-2 flex justify-between items-center text-xs font-semibold">
-//             <span>9:41</span>
-//             <div className="flex gap-1">
-//               <span>📶</span>
-//               <span>📡</span>
-//               <span>🔋</span>
-//             </div>
-//           </div> */}
-
-//           {/* HEADER */}
-//           <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
-//             <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors active:scale-95">
-//               <ChevronLeft className="w-6 h-6 text-slate-900" strokeWidth={2.5} />
-//             </button>
-//             <h1 className="text-lg font-bold text-slate-900 flex-1">Settings</h1>
-//           </div>
-
-//           {/* SCROLLABLE CONTENT */}
-//           <div className="overflow-y-auto bg-white" style={{ maxHeight: 'calc(667px - 100px)' }}>
-//             <div className="px-6 py-6">
-              
-//               {/* Search Settings */}
-//               <div className="mb-6">
-//                 <div className="relative">
-//                   <input
-//                     type="text"
-//                     placeholder="Search in settings"
-//                     value={searchSettings}
-//                     onChange={(e) => setSearchSettings(e.target.value)}
-//                     className="w-full px-4 py-3 pl-4 pr-12 bg-slate-100 rounded-full border-2 border-transparent focus:border-slate-400 focus:bg-white outline-none transition-all text-sm"
-//                   />
-//                   <Search className="w-5 h-5 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
-//                 </div>
-//               </div>
-
-//               {/* Settings Sections */}
-//               <div className="space-y-3 mb-6">
-//                 {filteredSections.map((section) => (
-//                   <button
-//                     key={section.id}
-//                     onClick={() => setExpandedSection(expandedSection === section.id ? null : section.id)}
-//                     // className="w-full bg-slate-50 border-2 border-slate-200 hover:border-slate-300 rounded-xl p-4 transition-all duration-200 text-left"
-//                     className="w-full px-4 py-3 pl-4 pr-12 bg-slate-100 rounded-full border-2 border-transparent focus:border-slate-400 focus:bg-white outline-none transition-all text-sm"
-//                   >
-//                     <div className="flex items-center justify-between ">
-//                       <div className="flex items-center gap-3">
-//                         <span className="text-xl">{section.icon}</span>
-//                         <span className="font-semibold text-slate-900 text-sm">{section.label}</span>
-//                       </div>
-//                       <span className={`transition-transform ${expandedSection === section.id ? 'rotate-180' : ''}`}>
-//                         ▼
-//                       </span>
-//                     </div>
-
-//                     {/* Expanded Items */}
-//                     {expandedSection === section.id && (
-//                       <div className="mt-4 pt-4 border-t border-slate-200 space-y-2 animate-slideDown">
-//                         {section.items.map((item, idx) => (
-//                           <button
-//                             key={idx}
-//                             className="w-full text-left px-3 py-2 rounded hover:bg-slate-100 text-xs text-slate-700 transition-colors"
-//                           >
-//                             → {item}
-//                           </button>
-//                         ))}
-//                       </div>
-//                     )}
-//                   </button>
-//                 ))}
-//               </div>
-
-//               {/* Help Section */}
-//               <button className="w-full px-4 py-3 pl-4 pr-12 bg-slate-100 rounded-full border-2 border-transparent focus:border-slate-400 focus:bg-white outline-none transition-all text-sm">
-//               {/* "w-full bg-slate-50 border-2 border-slate-200 hover:border-slate-300 rounded-xl p-4 text-left font-semibold text-slate-900 transition-all mb-6 text-sm"> */}
-//                 <div className="flex items-center gap-3"> 
-//                   <span className="font-semibold text-slate-900 text-sm"> 
-//                   {/* <HelpCircle className="w-5 h-5" /> */}
-//                      Help Section
-//                   </span>
-//                 </div>
-//               </button>
-
-//               {/* Danger Zone */}
-//               <div>
-//                 <p className="text-xs font-bold text-slate-500 uppercase tracking-wider px-2 mb-3"></p>
-//                 <div className="space-y-3">
-//                   <button className="w-full px-4 py-3 pl-4 pr-12 bg-slate-100 border-2 border-transparent text-blue-600 hover:bg-blue-100 text-sm rounded-full border-2  text-sm">
-//                   {/* "w-full p-4 rounded-xl font-semibold transition-all bg-blue-50 border-2 border-blue-300 text-blue-600 hover:bg-blue-100 text-sm"> */}
-//                     <div className="flex items-center gap-3">
-//                       <span className="text-lg"></span>  
-//                       {/* <span className=" font-semibold text-slate-900 bg-blue-50  text-sm"></span>   */}
-//                       Account Deactivation
-//                     </div>
-//                   </button>
-//                   <button 
-//                   className="w-full px-4 py-3 pl-4 pr-12 bg-slate-100 border-2 border-transparent text-red-600 hover:bg-red-100 text-sm rounded-full border-2 text-sm">
-//                   {/* // className="w-full p-4 rounded-xl font-semibold transition-all bg-red-50 border-2 border-red-300 text-red-600 hover:bg-red-100 text-sm"> */}
-//                     <div className="flex items-center gap-3">
-//                       <span className="text-lg"></span>
-//                       Account Deletion
-//                     </div>
-//                   </button>
-//                 </div>
-//               </div>
-
-//               {/* Footer */}
-//               <div className="mt-8 pt-6 border-t border-slate-200 text-center text-xs text-slate-500">
-//                 <p>App Version 2.1.0</p>
-//                 <p className="mt-2">© 2024 Matchmakers. All rights reserved.</p>
-//               </div>
-//             </div>
-//           </div>
-
-//           {/* HOME INDICATOR */}
-//           {/* <div className="bg-slate-900 h-6 rounded-t-3xl"></div> */}
-//         {/* </div> */}
-//       </div>
-
-//       <style jsx>{`
-//         @keyframes slideDown {
-//           from {
-//             opacity: 0;
-//             transform: translateY(-10px);
-//           }
-//           to {
-//             opacity: 1;
-//             transform: translateY(0);
-//           }
-//         }
-//         .animate-slideDown {
-//           animation: slideDown 0.2s ease-out;
-//         }
-//       `}</style>
-//     </div>
-//   );
-// }
-
-
-
-
-
-'use client';
-
-import React, { useState } from 'react';
-import { ChevronLeft, Search } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { Bell, ChevronLeft, GraduationCap, Lock, LogOut, ShieldCheck, SlidersHorizontal, UserRound, type LucideIcon } from "lucide-react";
+import {
+  getBlockedUsers,
+  getPrivacySettings,
+  getProfileSettings,
+  unblockProfile,
+  updatePrivacySettings,
+  updateProfileSettings,
+} from "@/shared/api/mvp.api";
+import { useLogout } from "@/features/auth/hooks/useAuth";
 
 export default function SettingsPage() {
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
-  const [searchSettings, setSearchSettings] = useState('');
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const logout = useLogout();
 
-  const settingsSections = [
-    {
-      id: 'user',
-      label: 'User settings',
-      items: ['Profile', 'Email & password', 'Phone number', 'Privacy'],
-    },
-    {
-      id: 'filter',
-      label: 'Filter Preferences',
-      items: ['Age range', 'Location', 'Height', 'Religion'],
-    },
-    {
-      id: 'safety',
-      label: 'Safety Options',
-      items: ['Block list', 'Report abuse', 'Verification', 'Privacy settings'],
-    },
-    {
-      id: 'blocked',
-      label: 'Blocked Contacts',
-      items: ['View blocked users', 'Unblock', 'Manage blocks'],
-    },
-  ];
+  const { data: privacy } = useQuery({ queryKey: ["privacy"], queryFn: getPrivacySettings, retry: false });
+  const { data: settings } = useQuery({ queryKey: ["profileSettings"], queryFn: getProfileSettings, retry: false });
+  const { data: blocked = [] } = useQuery({ queryKey: ["blockedUsers"], queryFn: getBlockedUsers, retry: false });
 
-  const filteredSections = settingsSections.filter(section =>
-    section.label.toLowerCase().includes(searchSettings.toLowerCase())
-  );
+  const privacyMutation = useMutation({
+    mutationFn: updatePrivacySettings,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["privacy"] }),
+  });
+
+  const settingsMutation = useMutation({
+    mutationFn: updateProfileSettings,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["profileSettings"] }),
+  });
+
+  const unblockMutation = useMutation({
+    mutationFn: unblockProfile,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["blockedUsers"] }),
+  });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4 flex items-center justify-center">
-      <div className="w-full max-w-md">
-
-        <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
-          {/* ✅ This must call onBack */}
-          <button
-            // onClick={() => onBack()}
-            onClick={() => router.back()}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors active:scale-95"
-          >
-            <ChevronLeft className="w-6 h-6 text-slate-900" strokeWidth={2.5} />
+    <main className="min-h-[100dvh] bg-[#FFF8F1] px-4 py-5 text-[#2D2424]">
+      <div className="mx-auto max-w-md">
+        <header className="mb-5 flex items-center gap-3">
+          <button onClick={() => router.back()} className="grid h-10 w-10 place-items-center rounded-full border border-[#EADDD2] bg-white">
+            <ChevronLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-lg font-bold text-slate-900 flex-1">Settings</h1>
-        </div>
-
-        <div className="overflow-y-auto bg-white" style={{ maxHeight: 'calc(667px - 100px)' }}>
-          <div className="px-6 py-6">
-
-            <div className="mb-6">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search in settings"
-                  value={searchSettings}
-                  onChange={(e) => setSearchSettings(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 bg-slate-100 rounded-full border-2 border-transparent focus:border-slate-400 focus:bg-white outline-none transition-all text-sm"
-                />
-                <Search className="w-5 h-5 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
-              </div>
-            </div>
-
-            <div className="space-y-3 mb-6">
-              {filteredSections.map((section) => (
-                <div key={section.id}>
-                  <button
-                    onClick={() =>
-                      setExpandedSection(expandedSection === section.id ? null : section.id)
-                    }
-                    className={`w-full px-4 py-3 bg-slate-100 border-2 border-transparent outline-none transition-all text-sm text-left ${
-                      expandedSection === section.id ? 'rounded-t-2xl' : 'rounded-full'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-900 text-sm">
-                        {section.label}
-                      </span>
-                      <span className={`transition-transform duration-200 text-slate-400 text-xs ${expandedSection === section.id ? 'rotate-180' : ''}`}>
-                        ▼
-                      </span>
-                    </div>
-                  </button>
-
-                  {expandedSection === section.id && (
-                    <div className="bg-slate-100 rounded-b-2xl px-4 pb-3 pt-2 border-t border-slate-200 space-y-1">
-                      {section.items.map((item, idx) => (
-                        <button
-                          key={idx}
-                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-200 text-xs text-slate-700 transition-colors"
-                        >
-                          → {item}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <button 
-            onClick={() => router.push('help')}
-            className="w-full px-4 py-3 bg-slate-100 rounded-full border-2 border-transparent outline-none transition-all text-sm text-left mb-3">
-              <span className="font-semibold text-slate-900 text-sm">Help Section</span>
-            </button>
-
-            <div className="space-y-3">
-              <button 
-              onClick={() => router.push('/deactivate')}
-              className="w-full px-4 py-3 bg-slate-100 border-2 border-transparent text-blue-600 hover:bg-blue-100 text-sm rounded-full text-left transition-colors">
-                Account Deactivation
-              </button>
-              <button
-                onClick={() => {
-                  if (confirm("Are you sure you want to delete your account?")) {
-                    router.push('/delete');
-                  }
-                }}
-                className="w-full px-4 py-3 bg-slate-100 border-2 border-transparent text-red-600 hover:bg-red-100 text-sm rounded-full text-left transition-colors"
-              >
-                Account Deletion
-              </button>
-            </div>
-
-            <div className="mt-8 pt-6 border-t border-slate-200 text-center text-xs text-slate-500">
-              <p>App Version 1.0</p>
-              <p className="mt-2">© 2026 Matchmakers. All rights reserved.</p>
-            </div>
+          <div>
+            <h1 className="text-2xl font-semibold">Settings</h1>
+            <p className="text-sm text-[#746767]">Control privacy, preferences, and safety.</p>
           </div>
-        </div>
+        </header>
+
+        <section className="mb-4 rounded-lg border border-[#EADDD2] bg-white p-4">
+          <SectionTitle icon={Lock} title="Account privacy" detail="MVP privacy works with your Django privacy app." />
+          <Toggle
+            label="Public profile"
+            checked={privacy?.is_profile_public ?? true}
+            onChange={(value) => privacyMutation.mutate({ is_profile_public: value, allow_messages_from: "matches" })}
+          />
+          <Toggle
+            label="Show profile image"
+            checked={privacy?.show_profile_image ?? true}
+            onChange={(value) => privacyMutation.mutate({ show_profile_image: value })}
+          />
+          <Toggle
+            label="Show location"
+            checked={privacy?.show_location ?? true}
+            onChange={(value) => privacyMutation.mutate({ show_location: value })}
+          />
+          <div className="mt-3 rounded-md bg-[#F8EFE6] p-3 text-sm text-[#746767]">
+            Messages are locked to mutual matches for MVP safety.
+          </div>
+        </section>
+
+        <section className="mb-4 rounded-lg border border-[#EADDD2] bg-white p-4">
+          <SectionTitle icon={ShieldCheck} title="Browse comfort" detail="Use private browsing and blur controls." />
+          <Toggle
+            label="Browse anonymously"
+            checked={settings?.anonymous_viewing ?? false}
+            onChange={(value) => settingsMutation.mutate({ anonymous_viewing: value })}
+          />
+          <Toggle
+            label="Blur profile image"
+            checked={settings?.blur_profile_image ?? false}
+            onChange={(value) => settingsMutation.mutate({ blur_profile_image: value })}
+          />
+        </section>
+
+        <section className="mb-4 rounded-lg border border-[#EADDD2] bg-white p-4">
+          <SectionTitle icon={SlidersHorizontal} title="Match preferences" detail="Basic filters are powered by profile and preference APIs." />
+          <button onClick={() => router.push("/profile/edit")} className="mt-3 h-11 w-full rounded-md bg-[#7A2432] text-sm font-semibold text-white">
+            Update profile and preferences
+          </button>
+        </section>
+
+        <section className="mb-4 rounded-lg border border-[#EADDD2] bg-white p-4">
+          <SectionTitle icon={UserRound} title="Blocked contacts" detail="People you block are hidden from discover and chat." />
+          {blocked.length === 0 && <p className="mt-3 text-sm text-[#746767]">No blocked users.</p>}
+          <div className="mt-3 space-y-2">
+            {blocked.map((item) => (
+              <div key={item.id} className="flex items-center justify-between rounded-md border border-[#EADDD2] p-3">
+                <span className="text-sm">{item.blocked_email}</span>
+                <button onClick={() => unblockMutation.mutate(item.blocked_profile_id)} className="text-sm font-semibold text-[#7A2432]">
+                  Unblock
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-4 grid grid-cols-2 gap-3">
+          <button onClick={() => router.push("/college")} className="rounded-lg border border-[#EADDD2] bg-white p-4 text-left">
+            <GraduationCap className="mb-3 h-5 w-5 text-[#7A2432]" />
+            <span className="block font-semibold">College Mode</span>
+            <span className="block text-xs text-[#746767]">Student verification</span>
+          </button>
+          <button className="rounded-lg border border-[#EADDD2] bg-white p-4 text-left">
+            <Bell className="mb-3 h-5 w-5 text-[#7A2432]" />
+            <span className="block font-semibold">Subscription</span>
+            <span className="block text-xs text-[#746767]">Minimal MVP emphasis</span>
+          </button>
+        </section>
+
+        {/* Logout */}
+        <section className="mb-8">
+          <button
+            onClick={() => logout.mutate()}
+            disabled={logout.isPending}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-white text-sm font-semibold text-[#7A2432] disabled:opacity-50"
+          >
+            <LogOut className="h-4 w-4" />
+            {logout.isPending ? "Logging out..." : "Log out"}
+          </button>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function SectionTitle({ icon: Icon, title, detail }: { icon: LucideIcon; title: string; detail: string }) {
+  return (
+    <div className="mb-3 flex gap-3">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#F8EFE6] text-[#7A2432]">
+        <Icon className="h-5 w-5" />
+      </span>
+      <div>
+        <h2 className="font-semibold">{title}</h2>
+        <p className="text-sm leading-6 text-[#746767]">{detail}</p>
       </div>
     </div>
   );
 }
 
-// export default function SettingsPage() {
-//   return <h1 style={{ color: "black" }}>SETTINGS PAGE WORKING</h1>;
-// }
+function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <label className="flex items-center justify-between border-t border-[#EADDD2] py-3 text-sm font-medium">
+      {label}
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-5 w-5 accent-[#7A2432]"
+      />
+    </label>
+  );
+}

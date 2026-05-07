@@ -1,96 +1,132 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
-from django.core.paginator import Paginator
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
+from apps.block.views import exclude_blocked_users
+from apps.privacy.models import PrivacySetting
 from apps.profiles.models.profile import Profile
-from .models import Match
-from .utils import calculate_match_score
+from apps.profiles.serializers.profile_serializer import ProfileSerializer
 
-from apps.matcher.signals import is_profile_ready
+from .models import Match, UserInteraction
 
-from apps.notification.services import send_notification
+
+def ordered_pair(user_a, user_b):
+    return (user_a, user_b) if user_a.id < user_b.id else (user_b, user_a)
+
+
+def compatibility_tags(user, profile):
+    tags = []
+    my_profile = getattr(user, "profile", None)
+
+    if my_profile:
+        if my_profile.city and profile.city and my_profile.city.lower() == profile.city.lower():
+            tags.append("Same city")
+        if my_profile.career and profile.career and my_profile.career.lower() == profile.career.lower():
+            tags.append("Career aligned")
+        if my_profile.values and profile.values:
+            mine = {item.strip().lower() for item in my_profile.values.split(",") if item.strip()}
+            theirs = {item.strip().lower() for item in profile.values.split(",") if item.strip()}
+            if mine.intersection(theirs):
+                tags.append("Shared values")
+        if my_profile.religion_id and my_profile.religion_id == profile.religion_id:
+            tags.append("Cultural preferences match")
+
+    if not tags:
+        tags.append("Meaningful profile")
+
+    return tags[:4]
 
 
 class RecommendationView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = request.user
+        interacted_ids = UserInteraction.objects.filter(user=request.user).values_list("target_id", flat=True)
+        profiles = Profile.objects.select_related("user", "religion", "caste", "gotra").exclude(
+            user=request.user
+        ).exclude(
+            user_id__in=interacted_ids
+        ).filter(
+            is_active=True
+        )
+        profiles = exclude_blocked_users(request.user, profiles)
 
-        profiles = Profile.objects.exclude(user=user)
+        visible_ids = PrivacySetting.objects.filter(is_profile_public=False).values_list("user_id", flat=True)
+        profiles = profiles.exclude(user_id__in=visible_ids)
 
-        results = []
+        data = []
+        for profile in profiles[:20]:
+            item = ProfileSerializer(profile, context={"request": request}).data
+            item["compatibility_tags"] = compatibility_tags(request.user, profile)
+            data.append(item)
 
-        for profile in profiles:
-            score = calculate_match_score(user, profile)
+        return Response({"results": data})
 
-            results.append({
-                "profile_id": profile.id,
-                "name": profile.full_name,
-                "image": profile.images.first().image.url if profile.images.exists() else None,
-                "score": score,
-            })
 
-        # 🔥 Sort by score
-        results = sorted(results, key=lambda x: x["score"], reverse=True)
-
-        # Pagination
-        paginator = Paginator(results, 10)
-        page = request.GET.get("page")
-        data = paginator.get_page(page)
-
-        return Response({
-            "results": data.object_list,
-            "total_pages": paginator.num_pages
-        })
-    
 class SendMatchView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, profile_id):
-        sender = request.user
-        receiver_profile = Profile.objects.get(id=profile_id)
+        action = request.data.get("action", "like")
+        if action not in ["like", "pass"]:
+            return Response({"error": "Action must be like or pass"}, status=400)
+
+        receiver_profile = get_object_or_404(Profile, id=profile_id)
         receiver = receiver_profile.user
 
-                # ✅ Save behavior
-        UserInteraction.objects.create(
-            user=sender,
+        if receiver == request.user:
+            return Response({"error": "You cannot match with yourself"}, status=400)
+
+        UserInteraction.objects.update_or_create(
+            user=request.user,
             target=receiver,
-            action="like"
+            defaults={"action": action},
         )
 
-        match, created = Match.objects.get_or_create(
-            sender=sender,
-            receiver=receiver
+        if action == "pass":
+            return Response({"message": "Profile passed", "matched": False})
+
+        user1, user2 = ordered_pair(request.user, receiver)
+        match, _ = Match.objects.get_or_create(
+            user1=user1,
+            user2=user2,
+            defaults={
+                "sender": request.user,
+                "receiver": receiver,
+                "is_like": True,
+                "status": "pending",
+            },
         )
 
-        # 🔥 Check reverse match (mutual like)
-        reverse_match = Match.objects.filter(
-            sender=receiver,
-            receiver=sender,
-            is_like=True
-        ).first()
+        reverse_like = UserInteraction.objects.filter(
+            user=receiver,
+            target=request.user,
+            action="like",
+        ).exists()
 
-        if reverse_match:
+        if reverse_like:
             match.status = "accepted"
-            reverse_match.status = "accepted"
-            match.save()
-            reverse_match.save()
+            match.save(update_fields=["status"])
+            return Response({
+                "message": "You both are interested",
+                "matched": True,
+                "match_id": match.id,
+            })
 
-            return Response({"message": "It's a match! ❤️"})
+        return Response({"message": "Interest sent", "matched": False, "match_id": match.id})
 
-        return Response({"message": "Like sent"})
-    
+
 class AcceptMatchView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, match_id):
-        match = Match.objects.get(id=match_id, receiver=request.user)
-
+        match = get_object_or_404(Match, id=match_id)
+        if request.user not in [match.user1, match.user2]:
+            return Response({"error": "Access denied"}, status=403)
         match.status = "accepted"
-        match.save()
-
+        match.save(update_fields=["status"])
         return Response({"message": "Match accepted"})
 
 
@@ -98,24 +134,20 @@ class RejectMatchView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, match_id):
-        match = Match.objects.get(id=match_id, receiver=request.user)
-
+        match = get_object_or_404(Match, id=match_id)
+        if request.user not in [match.user1, match.user2]:
+            return Response({"error": "Access denied"}, status=403)
         match.status = "rejected"
-        match.save()
-
+        match.save(update_fields=["status"])
         return Response({"message": "Match rejected"})
-    
+
 
 class SentMatchesView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         matches = Match.objects.filter(sender=request.user)
-        return Response([{
-            "id": m.id,
-            "receiver": m.receiver.email,
-            "status": m.status
-        } for m in matches])
+        return Response([{"id": m.id, "receiver": m.receiver.email, "status": m.status} for m in matches])
 
 
 class ReceivedMatchesView(APIView):
@@ -123,174 +155,24 @@ class ReceivedMatchesView(APIView):
 
     def get(self, request):
         matches = Match.objects.filter(receiver=request.user)
-        return Response([{
-            "id": m.id,
-            "sender": m.sender.email,
-            "status": m.status
-        } for m in matches])
+        return Response([{"id": m.id, "sender": m.sender.email, "status": m.status} for m in matches])
 
 
 class AcceptedMatchesView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        matches = Match.objects.filter(
-            status="accepted"
-        ).filter(
-            sender=request.user
-        ) | Match.objects.filter(
-            status="accepted",
-            receiver=request.user
-        )
-
-        return Response([{
-            "id": m.id,
-            "user": m.receiver.email if m.sender == request.user else m.sender.email
-        } for m in matches])
-    
-
-class SentMatchesView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        matches = Match.objects.filter(sender=request.user)
-        return Response([{
-            "id": m.id,
-            "receiver": m.receiver.email,
-            "status": m.status
-        } for m in matches])
-
-
-class ReceivedMatchesView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        matches = Match.objects.filter(receiver=request.user)
-        return Response([{
-            "id": m.id,
-            "sender": m.sender.email,
-            "status": m.status
-        } for m in matches])
-
-
-class AcceptedMatchesView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        matches = Match.objects.filter(
-            status="accepted"
-        ).filter(
-            sender=request.user
-        ) | Match.objects.filter(
-            status="accepted",
-            receiver=request.user
-        )
-
-        return Response([{
-            "id": m.id,
-            "user": m.receiver.email if m.sender == request.user else m.sender.email
-        } for m in matches])
-    
-
-
-
-class AIRecommendationView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        user = request.user
-
-        # ❌ Exclude already interacted users
-        interacted_ids = UserInteraction.objects.filter(
-            user=user
-        ).values_list("target_id", flat=True)
-
-        profiles = Profile.objects.exclude(user=user).exclude(user_id__in=interacted_ids)
-
-        results = []
-
-        for profile in profiles:
-            score = ai_match_score(user, profile)
-
-            results.append({
-                "profile_id": profile.id, # type: ignore
-                "name": profile.full_name,
-                "score": round(score, 2),
+        matches = Match.objects.filter(Q(user1=request.user) | Q(user2=request.user), status="accepted")
+        data = []
+        for match in matches:
+            other = match.user2 if match.user1 == request.user else match.user1
+            profile = getattr(other, "profile", None)
+            data.append({
+                "id": match.id,
+                "user_id": other.id,
+                "email": other.email,
+                "name": profile.full_name if profile else other.full_name,
+                "profile_id": profile.id if profile else None,
+                "profile_image": profile.profile_image.url if profile and profile.profile_image else None,
             })
-
-        results = sorted(results, key=lambda x: x["score"], reverse=True)
-
-        return Response(results[:20])  # top 20 AI matches
-    
-
-# matches/views.py
-
-class SwipeView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, profile_id):
-        action = request.data.get("action")  # like/pass/superlike
-
-        if action not in ["like", "pass", "superlike"]:
-            return Response({"error": "Invalid action"}, status=400)
-
-        target_profile = Profile.objects.get(id=profile_id)
-        target_user = target_profile.user
-
-        result = handle_swipe(request.user, target_user, action)
-
-        return Response(result)
-    
-
-
-
-def check_swipe_limit(user):
-    today = now() - timedelta(days=1)
-
-    count = Swipe.objects.filter(
-        user=user,
-        created_at__gte=today
-    ).count()
-
-    LIMIT = 10  # free users
-
-    return count < LIMIT
-
-    if not check_swipe_limit(request.user):
-        return Response({"error": "Daily swipe limit reached"}, status=403)
-    
-
-def exclude_swiped(user, queryset):
-    swiped_ids = Swipe.objects.filter(
-        user=user
-    ).values_list("target_id", flat=True)
-
-    return queryset.exclude(user_id__in=swiped_ids)
-
-
-    if reverse:
-        send_notification(
-            user=user,
-            data={
-                "type": "match",
-                "title": "It's a Match ❤️",
-                "body": "You both liked each other!"
-            }
-        )
-
-    send_notification(
-        user=target_user,
-        data={
-            "type": "match",
-            "title": "It's a Match ❤️",
-            "body": "You both liked each other!"
-        }
-    )
-
-def get_user_swipe_stats(user):
-    return {
-        "likes": Swipe.objects.filter(user=user, action="like").count(),
-        "passes": Swipe.objects.filter(user=user, action="pass").count(),
-        "matches": Match.objects.filter(user1=user).count()
-                  + Match.objects.filter(user2=user).count()
-    }
+        return Response(data)

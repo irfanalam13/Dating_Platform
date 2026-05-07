@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404
 
 from apps.chat.models import Conversation, Message
 from apps.chat.serializers import MessageSerializer
+from apps.matcher.models import Match
 from apps.profiles.models.profile import Profile
 from apps.safety.services.safety_engine import analyze_message
 
@@ -24,6 +25,18 @@ class StartConversationView(APIView):
 
         if target_user == user:
             return Response({"error": "Cannot start conversation with yourself"}, status=400)
+
+        is_matched = Match.objects.filter(
+            status="accepted",
+            user1__in=[user, target_user],
+            user2__in=[user, target_user],
+        ).exists()
+
+        if not is_matched:
+            return Response(
+                {"error": "Conversation is available only after a mutual match"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         convo = Conversation.objects.filter(
             participants=user
@@ -49,9 +62,24 @@ class ConversationListView(APIView):
 
         data = []
         for c in convos:
+            last_message = c.messages.order_by("-created_at").first()
             data.append({
                 "id": c.id,
-                "participants": [u.email for u in c.participants.all() if u != request.user]
+                "participants": [
+                    {
+                        "id": u.id,
+                        "email": u.email,
+                        "name": getattr(getattr(u, "profile", None), "full_name", None) or u.full_name or u.email,
+                        "profile_id": getattr(getattr(u, "profile", None), "id", None),
+                        "profile_image": getattr(getattr(u, "profile", None), "profile_image", None).url
+                        if getattr(getattr(u, "profile", None), "profile_image", None)
+                        else None,
+                    }
+                    for u in c.participants.all()
+                    if u != request.user
+                ],
+                "last_message": last_message.content if last_message else "",
+                "updated_at": last_message.created_at if last_message else c.created_at,
             })
 
         return Response(data)

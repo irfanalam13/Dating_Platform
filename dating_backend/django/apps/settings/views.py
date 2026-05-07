@@ -1,19 +1,25 @@
-from django.contrib.auth.models import User
-from rest_framework.decorators import api_view
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
 
-@api_view(['POST'])
-def update_settings(request):
-    user = request.user  # make sure authentication is set
+from .models import ProfileSettings
+from .serializers import ProfileSettingsSerializer
 
-    user.username = request.data.get("username", user.username)
-    user.email = request.data.get("email", user.email)
 
-    password = request.data.get("password")
-    if password:
-        user.set_password(password)
+class ProfileSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
 
-    user.save()
+    def get(self, request):
+        settings, _ = ProfileSettings.objects.get_or_create(user=request.user)
+        serializer = ProfileSettingsSerializer(settings)
+        return Response(serializer.data)
 
-    return Response({"message": "Updated successfully"})
+    def patch(self, request):
+        settings, _ = ProfileSettings.objects.get_or_create(user=request.user)
+        serializer = ProfileSettingsSerializer(settings, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        serializer = ProfileSettingsSerializer(settings)
+        return Response(serializer.data)
+    
+    

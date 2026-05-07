@@ -8,9 +8,9 @@ from django.contrib.auth import get_user_model
 from apps.profiles.models.profile import Profile, ProfileImage
 from ..serializers.profile_serializer import ProfileSerializer, ProfileImageSerializers
 from apps.profiles.services.profile_service import update_profile, get_geo_ai_matches
-from apps.profiles.services.profile_view_service import track_profile_view
 from apps.safety.services.safety_engine import analyze_profile
 from apps.profiles.services.profile_service import get_profile_data
+from apps.privacy.models import PrivacySetting
 from rest_framework import viewsets
 
 User = get_user_model()
@@ -89,13 +89,45 @@ class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        profile = get_object_or_404(Profile, user=request.user)
+        profile, _ = Profile.objects.get_or_create(user=request.user)
 
         serializer = ProfileSerializer(profile, context={"request": request})
         return Response(serializer.data)
 
     def patch(self, request):
-        profile = update_profile(request.user, request.data)
+        profile, _ = Profile.objects.get_or_create(user=request.user)
+        data = request.data.copy()
+        is_profile_public = data.pop("is_profile_public", None)
+
+        serializer = ProfileSerializer(
+            profile,
+            data=data,
+            partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        profile = serializer.save(user=request.user)
+
+        required_fields = [
+            profile.full_name,
+            profile.date_of_birth,
+            profile.gender,
+            profile.city,
+            profile.education,
+            profile.career,
+            profile.values,
+            profile.relationship_intent,
+        ]
+        profile.is_complete = all(bool(value) for value in required_fields)
+        profile.save(update_fields=["is_complete"])
+
+        if is_profile_public is not None:
+            if isinstance(is_profile_public, list):
+                is_profile_public = is_profile_public[0] if is_profile_public else None
+            privacy, _ = PrivacySetting.objects.get_or_create(user=request.user)
+            privacy.is_profile_public = str(is_profile_public).lower() in ["true", "1", "yes", "public"]
+            privacy.allow_messages_from = "matches"
+            privacy.save(update_fields=["is_profile_public", "allow_messages_from", "updated_at"])
 
         # 🤖 AI safety analysis
         analyze_profile(request.user, profile)
@@ -109,46 +141,20 @@ class ProfileDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, user_id):
-        # 1. Get full structured data from service
-        data = get_profile_full_data(user_id)
+        profile = get_object_or_404(
+            Profile.objects.select_related("user", "religion", "caste", "gotra"),
+            user_id=user_id,
+        )
+        privacy, _ = PrivacySetting.objects.get_or_create(user=profile.user)
 
-        # 2. Privacy check (FIXED)
-        if data["settings"]["is_private"] and request.user.id != user_id:
+        if not privacy.is_profile_public and request.user.id != user_id:
             return Response(
                 {"detail": "This account is private"},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # 3. Track profile view
-        track_profile_view(request.user, user_id)
-
-        # 4. Serialize profile only (clean separation)
-        serializer = ProfileSerializer(
-            data["profile"],
-            context={"request": request}
-        )
-
-        serializer.is_valid(raise_exception=True)
-
-        # 5. Final response (clean + consistent)
-        return Response(
-            {
-                "success": True,
-                "data": {
-                    "profile": serializer.data,
-                    "stats": {
-                        "followers": data["stats"]["followers_count"],
-                        "following": data["stats"]["following_count"],
-                        "posts": data["stats"]["posts_count"],
-                    },
-                    "settings": {
-                        "is_private": data["settings"]["is_private"],
-                        "blur": data["settings"]["blur_profile_image"],
-                    },
-                }
-            },
-            status=status.HTTP_200_OK
-        )
+        serializer = ProfileSerializer(profile, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 # =====================================================
 # 🖼️ IMAGE MANAGEMENT

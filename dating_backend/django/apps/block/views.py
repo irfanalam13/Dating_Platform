@@ -28,8 +28,11 @@ def moderate_text(text):
 class BlockUserView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, user_id):
-        target = User.objects.get(id=user_id)
+    def post(self, request, profile_id):
+        target = Profile.objects.get(id=profile_id).user
+
+        if target == request.user:
+            return Response({"error": "You cannot block yourself"}, status=400)
 
         Block.objects.get_or_create(
             blocker=request.user,
@@ -42,7 +45,7 @@ class BlockListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        blocks = Block.objects.filter(blocker=request.user)
+        blocks = Block.objects.filter(blocker=request.user).select_related("blocked")
 
         serializer = BlockSerializer(blocks, many=True)
         return Response(serializer.data)

@@ -1,14 +1,9 @@
-// "use client";
+import { MvpShell } from "@/shared/ui/mvp-shell";
 
-// import ProtectedRoute from "@/shared/lib/protected-route";
-
-// export default function ProtectedLayout({
-//   children,
-// }: {
-//   children: React.ReactNode;
-// }) {
-//   return <ProtectedRoute>{children}</ProtectedRoute>;
-// }
-export default function ProtectedLayout({ children }) {
-  return <>{children}</>;
+export default function ProtectedLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <MvpShell>{children}</MvpShell>;
 }

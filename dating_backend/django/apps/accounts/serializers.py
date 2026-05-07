@@ -57,8 +57,8 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 # 🔐 LOGIN SERIALIZER
 class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField(
-        help_text="Enter your registered email"
+    email = serializers.CharField(
+        help_text="Enter your registered email, phone, or username"
     )
     password = serializers.CharField(
         write_only=True,
