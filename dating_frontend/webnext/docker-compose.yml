@@ -1,0 +1,50 @@
+
+services:
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_DB: dating
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"   # ✅ optional (for pgAdmin)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./dating_backend/django
+    container_name: django_backend
+    command: >
+      sh -c "
+      python manage.py migrate &&
+      python manage.py runserver 0.0.0.0:8000
+      "
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+    volumes:
+      - ./dating_backend/django:/app
+    depends_on:
+      - db
+
+  frontend:
+    build:
+      context: ./dating_frontend/webnext
+    container_name: next_frontend
+    command: npm run dev   # ✅ removed npm install
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./dating_frontend/webnext:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
