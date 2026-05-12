@@ -25,8 +25,13 @@ export const updateProfile = (formData: FormData) => {
   });
 };
 
+// export const getDiscoverProfiles = async (): Promise<DiscoverResponse> => {
+//   const res = await api.get("/matcher/recommendations/");
+//   return res.data;
+// };
 export const getDiscoverProfiles = async (): Promise<DiscoverResponse> => {
   const res = await api.get("/matcher/recommendations/");
+  console.log("🔍 DISCOVER:", res.data);
   return res.data;
 };
 

@@ -1,5 +1,3 @@
-# backend/Dockerfile
-
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -31,4 +29,5 @@ RUN pip install --upgrade pip --default-timeout=100 --retries=5 && \
 # Copy project files
 COPY . .
 
-CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000"]
+# CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py create_admin && gunicorn config.wsgi:application --bind 0.0.0.0:8000"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000"]

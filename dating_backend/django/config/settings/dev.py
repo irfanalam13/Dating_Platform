@@ -6,7 +6,13 @@ from django.conf import settings
 DEBUG: bool = env.bool("DEBUG", default=True)
 
 # ✅ ALLOWED HOSTS (safe typing)
-ALLOWED_HOSTS: list[str] = env.list("ALLOWED_HOSTS", default=["*"])
+DEBUG = env.bool("DEBUG", default=False)
+
+if DEBUG:
+    ALLOWED_HOSTS = ["*"]
+else:
+    # Force specific domains in production
+    ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["dating-backend.onrender.com"])
 # ✅ DATABASE
 
 DATABASES: dict = {

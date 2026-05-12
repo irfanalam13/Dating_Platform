@@ -163,6 +163,7 @@ export default function UploadSelfie() {
               src={previewUrl}
               alt="Preview"
               className="w-full max-h-72 object-cover rounded-xl shadow-md border border-gray-100 dark:border-zinc-700"
+              loading="eager"
             />
           </motion.div>
         )}

@@ -1,4 +1,4 @@
-import HomePage from "@/features/profile/components/home";
+import HomePage from "@/features/core/components/home";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 

@@ -86,6 +86,7 @@ export default function MyProfilePage({ data, onSettingsClick }: ProfileCardProp
               src={data.profile_image || "/default.png"}
               alt={data.full_name}
               className="w-full h-full object-cover rounded-full border-4 border-rose-100 shadow-sm"
+              loading="eager"
             />
             <span className="absolute bottom-2 right-2 bg-rose-500 text-white text-xs px-2 py-0.5 rounded-full font-semibold border-2 border-white">
               {data.age}

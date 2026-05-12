@@ -42,22 +42,51 @@ def compatibility_tags(user, profile):
 class RecommendationView(APIView):
     permission_classes = [IsAuthenticated]
 
+    # def get(self, request):
+    #     interacted_ids = UserInteraction.objects.filter(user=request.user).values_list("target_id", flat=True)
+    #     profiles = Profile.objects.select_related("user", "religion", "caste", "gotra").exclude(
+    #         user=request.user
+    #     ).exclude(
+    #         user_id__in=interacted_ids
+    #     ).filter(
+    #         is_active=True
+    #     )
+    #     profiles = exclude_blocked_users(request.user, profiles)
+
+    #     visible_ids = PrivacySetting.objects.filter(is_profile_public=False).values_list("user_id", flat=True)
+    #     profiles = profiles.exclude(user_id__in=visible_ids)
+
+    #     data = []
+    #     for profile in profiles[:20]:
+    #         item = ProfileSerializer(profile, context={"request": request}).data
+    #         item["compatibility_tags"] = compatibility_tags(request.user, profile)
+    #         data.append(item)
+
+    #     return Response({"results": data})
     def get(self, request):
-        interacted_ids = UserInteraction.objects.filter(user=request.user).values_list("target_id", flat=True)
-        profiles = Profile.objects.select_related("user", "religion", "caste", "gotra").exclude(
-            user=request.user
-        ).exclude(
-            user_id__in=interacted_ids
-        ).filter(
-            is_active=True
+        interacted_ids = list(
+            UserInteraction.objects.filter(user=request.user)
+            .values_list("target_id", flat=True)
         )
+
+        profiles = Profile.objects.select_related(
+            "user", "religion", "caste", "gotra"
+        ).exclude(user=request.user).filter(is_active=True)
+
         profiles = exclude_blocked_users(request.user, profiles)
 
-        visible_ids = PrivacySetting.objects.filter(is_profile_public=False).values_list("user_id", flat=True)
-        profiles = profiles.exclude(user_id__in=visible_ids)
+        private_ids = PrivacySetting.objects.filter(
+            is_profile_public=False
+        ).values_list("user_id", flat=True)
+        profiles = profiles.exclude(user_id__in=private_ids)
+
+        # ✅ If all profiles already interacted with, reset and show everyone again
+        available = profiles.exclude(user_id__in=interacted_ids)
+        if not available.exists():
+            available = profiles  # show all again when exhausted
 
         data = []
-        for profile in profiles[:20]:
+        for profile in available[:20]:
             item = ProfileSerializer(profile, context={"request": request}).data
             item["compatibility_tags"] = compatibility_tags(request.user, profile)
             data.append(item)

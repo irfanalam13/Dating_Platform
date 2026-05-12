@@ -93,12 +93,25 @@ export const useLogout = () => {
   const router = useRouter();
 
   return useMutation({
+    // mutationFn: async () => {
+    //   // ✅ Raw fetch — completely bypasses axios interceptor
+    //   // This prevents the refresh → logout → refresh loop
+    //   await fetch("http://localhost:8000/api/v1/auth/logout/", {
+    //     method: "POST",
+    //     credentials: "include", // sends cookies so Django can blacklist + clear them
+    //   });
+    // },
     mutationFn: async () => {
-      // ✅ Raw fetch — completely bypasses axios interceptor
-      // This prevents the refresh → logout → refresh loop
-      await fetch("http://localhost:8000/api/v1/auth/logout/", {
+    // Use the same variable as Axios
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+
+      await fetch(`${baseUrl}/auth/logout/`, {
         method: "POST",
-        credentials: "include", // sends cookies so Django can blacklist + clear them
+        headers: {
+          "Content-Type": "application/json",
+        },
+        // Required to send the session/refresh cookies to Django
+        credentials: "include", 
       });
     },
 

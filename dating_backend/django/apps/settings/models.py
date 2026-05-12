@@ -30,3 +30,5 @@ class ProfileSettings(models.Model):
         indexes = [
             models.Index(fields=["user"]),
         ]
+
+    
